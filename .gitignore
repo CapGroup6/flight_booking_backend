@@ -1,5 +1,9 @@
+### IntelliJ IDEA ###
+*.iws
+*.iml
+*.ipr
+.idea/
 target/
-.idea
 ### Mac OS ###
 .DS_Store
 logs/*
