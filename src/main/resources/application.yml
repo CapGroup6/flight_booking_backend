@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: capstone-flight-booking
+  profiles:
+    active: test
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: PST
+
+server:
+  port: 8080
