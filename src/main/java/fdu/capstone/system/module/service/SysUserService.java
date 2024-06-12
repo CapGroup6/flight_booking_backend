@@ -19,7 +19,7 @@ public interface SysUserService extends IService<SysUser> {
     public SysUser getUserByUsername(String username);
 
     /**
-     * 根据手机号查询
+     *
      *
      * @param phone
      * @return
@@ -27,7 +27,7 @@ public interface SysUserService extends IService<SysUser> {
     public SysUser getUserByPhone(String phone);
 
     /**
-     * 根据邮箱查询
+     *
      *
      * @param email
      * @return

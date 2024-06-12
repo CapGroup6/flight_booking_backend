@@ -45,4 +45,16 @@ public class JwtUtil {
         return info;
     }
 
+    public static Object getProperty(String token, String secret,String propertyName) {
+        if (StringUtils.isEmpty(token)) {
+            throw new IllegalArgumentException("token should not be null");
+        }
+
+        JWTVerifier jwtVerifier = JWT.require(Algorithm.HMAC256(secret)).build();
+        DecodedJWT verify = jwtVerifier.verify(token);
+        Map<String, Object> info = verify.getClaim("info").asMap();
+        Object res = info.get(propertyName);
+        return res;
+    }
+
 }

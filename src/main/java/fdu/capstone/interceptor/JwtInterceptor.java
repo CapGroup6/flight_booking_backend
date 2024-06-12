@@ -38,7 +38,6 @@ public class JwtInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws IOException {
 
-
         ResponseResult<Object> result = ResponseResult.build(null, null, null);
 
         String token = request.getHeader(tokenKey);
@@ -76,4 +75,7 @@ public class JwtInterceptor implements HandlerInterceptor {
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
         ThreadLocalUtil.remove();
     }
+
+
+
 }

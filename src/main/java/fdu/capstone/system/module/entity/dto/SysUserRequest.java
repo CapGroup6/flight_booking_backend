@@ -12,24 +12,18 @@ import javax.validation.constraints.NotBlank;
  * Date: 2024/6/5
  */
 @Data
-@Schema(description = "SysUser")
 public class SysUserRequest {
 
     @NotBlank(message = "user's name can't be valid")
-    @Schema(description = "username")
-    @TableField("username")
     private String username;
 
     @Schema(description = "password")
-    @TableField("password")
     private String password;
 
     @Schema(description = "nickName")
-    @TableField("nick_name")
     private String nickName;
 
     @Schema(description = "phone")
-    @TableField("phone")
     private String phone;
 
     @Schema(description = "email")

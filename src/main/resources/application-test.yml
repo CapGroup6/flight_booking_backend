@@ -45,6 +45,12 @@ mybatis-plus:
 
 
 springdoc:
+  components:
+    securitySchemes:
+      usernameHeader:
+        type: apiKey
+        in: header
+        name: X-Username
   api-docs:
     path: /v3/api-docs
     enabled: true
@@ -53,10 +59,11 @@ springdoc:
     enabled: true
 
 
+
 system:
   config:
     auth:
-      tokenKey: "token"
+      tokenKey: "apiToken"
       tokenSignSecret: "flight  booking"
       tokenExpiredTime: 360000000
       excludeUrls: "/**"
