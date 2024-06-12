@@ -31,12 +31,13 @@ public class CommonField {
     @JsonFormat(pattern="yyyy-mm-dd HH:mm:ss")
     private LocalDateTime createTime;
 
+
     @Schema(hidden = true)
     @TableField(fill=FieldFill.INSERT_UPDATE)
     @JsonSerialize(using= LocalDateTimeSerializer.class)
     @JsonDeserialize(using=LocalDateTimeDeserializer.class)
     @JsonFormat(pattern = "yyyy-mm-dd HH:mm:ss")
-    private LocalDateTime UpdateTime;
+    private LocalDateTime updateTime;
 
 
 }
