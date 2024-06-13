@@ -15,3 +15,22 @@ CREATE TABLE `sys_user` (
   UNIQUE KEY `email_UNIQUE` (`email`),
   UNIQUE KEY `phone_UNIQUE` (`phone`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin;
+
+
+CREATE TABLE `user_search_log` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `userid` int DEFAULT NULL,
+  `departure` varchar(100) COLLATE utf8mb3_bin NOT NULL,
+  `destination` varchar(100) COLLATE utf8mb3_bin NOT NULL,
+  `departure_date` datetime DEFAULT NULL,
+  `return_date` datetime DEFAULT NULL COMMENT 'The return date',
+  `round_trip` tinyint(1) DEFAULT '0' COMMENT '0-  not a round trip 1-  a round trip',
+  `direct_flight` tinyint(1) DEFAULT '0' COMMENT '0- not a direct flight 1- a direct flight',
+  `adult_num` int DEFAULT '0' COMMENT 'The number of adult',
+  `children_num` int DEFAULT '0' COMMENT 'The number of children',
+  `create_time` datetime DEFAULT NULL,
+  `update_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `id_UNIQUE` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin;
+SELECT * FROM flight_booking.user_search_log;
