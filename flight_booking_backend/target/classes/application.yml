@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: capstone-flight-booking
+  profiles:
+    active: test
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: PST
+  main:
+    allow-bean-definition-overriding: true
+
+server:
+  port: 8080
