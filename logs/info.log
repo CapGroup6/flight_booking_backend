@@ -1,0 +1,19 @@
+2024-06-17 13:41:34.463 []  INFO 3936 --- [background-preinit] o.h.validator.internal.util.Version      : HV000001: Hibernate Validator 8.0.1.Final
+2024-06-17 13:41:34.771 []  INFO 3936 --- [main] fdu.capstone.AppMain                     : Starting AppMain using Java 22.0.1 with PID 3936 (C:\D\FDU\6806\flight_booking_backend\target\classes started by Julie in C:\D\FDU\6806\flight_booking_backend)
+2024-06-17 13:41:34.782 []  INFO 3936 --- [main] fdu.capstone.AppMain                     : The following 1 profile is active: "test"
+2024-06-17 13:41:40.559 []  INFO 3936 --- [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2024-06-17 13:41:40.581 []  INFO 3936 --- [main] o.a.coyote.http11.Http11NioProtocol      : Initializing ProtocolHandler ["http-nio-8080"]
+2024-06-17 13:41:40.585 []  INFO 3936 --- [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2024-06-17 13:41:40.587 []  INFO 3936 --- [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
+2024-06-17 13:41:40.769 []  INFO 3936 --- [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2024-06-17 13:41:40.773 []  INFO 3936 --- [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 5729 ms
+2024-06-17 13:41:43.369 []  INFO 3936 --- [main] com.alibaba.druid.pool.DruidDataSource   : {dataSource-1,mysql} inited
+2024-06-17 13:41:43.371 []  INFO 3936 --- [main] c.b.d.d.DynamicRoutingDataSource         : dynamic-datasource - add a datasource named [mysql] success
+2024-06-17 13:41:43.371 []  INFO 3936 --- [main] c.b.d.d.DynamicRoutingDataSource         : dynamic-datasource initial loaded [1] datasource,primary datasource named [mysql]
+2024-06-17 13:41:47.229 []  INFO 3936 --- [main] o.a.coyote.http11.Http11NioProtocol      : Starting ProtocolHandler ["http-nio-8080"]
+2024-06-17 13:41:47.306 []  INFO 3936 --- [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2024-06-17 13:41:47.338 []  INFO 3936 --- [main] fdu.capstone.AppMain                     : Started AppMain in 14.529 seconds (process running for 23.812)
+2024-06-17 13:41:47.680 []  INFO 3936 --- [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2024-06-17 13:41:47.680 []  INFO 3936 --- [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2024-06-17 13:41:47.685 []  INFO 3936 --- [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 5 ms
+2024-06-17 13:41:49.505 [962782762807328768]  INFO 3936 --- [http-nio-8080-exec-8] o.springdoc.api.AbstractOpenApiResource  : Init duration for springdoc-openapi is: 970 ms
