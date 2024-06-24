@@ -1,0 +1,28 @@
+version: "3.7"
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    container_name: mysql8
+    ports:
+      - 3308:3306
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+    volumes:
+      - ./docker-mapping-directory/mysql/mysql:/var/lib/mysql
+      - ./docker-mapping-directory/mysql/config/my.cnf:/etc/mysql/my.cnf
+
+  flight_search_backend:
+    depends_on:
+      - db
+    image: flight_search:1.0.0
+    ports:
+      - 80:8080
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_URL=jdbc:mysql://db:3306/flight_booking?serverTimezone=America/Vancouver&characterEncoding=utf-8
+
+    volumes:
+      - ./docker-mapping-directory/backend/log:/app/logs
+
