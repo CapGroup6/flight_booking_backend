@@ -33,4 +33,3 @@ CREATE TABLE `user_search_log` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `id_UNIQUE` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin;
-SELECT * FROM flight_booking.user_search_log;
