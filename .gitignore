@@ -7,3 +7,4 @@ target/
 ### Mac OS ###
 .DS_Store
 logs/*
+src/main/resources/application-test.yml
