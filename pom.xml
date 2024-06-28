@@ -27,6 +27,11 @@
         <java-jwt.version>3.12.0</java-jwt.version>
     </properties>
 
+    <!--Chi add this dependency for front-back integration-->
+    <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+    </dependency>
 
     <dependencies>
         <dependency>
