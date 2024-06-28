@@ -18,10 +18,20 @@ public interface SysUserService extends IService<SysUser> {
 
     public SysUser getUserByUsername(String username);
 
-
+    /**
+     *
+     *
+     * @param phone
+     * @return
+     */
     public SysUser getUserByPhone(String phone);
 
-
+    /**
+     *
+     *
+     * @param email
+     * @return
+     */
     public SysUser getUserByEmail(String email);
 
     public String login(LoginUserRequest loginUserRequest);
