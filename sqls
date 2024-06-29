@@ -1,5 +1,5 @@
-CREATE DATABASE `flight_booking` /*!40100 DEFAULT CHARACTER SET utf8mb3 COLLATE utf8mb3_bin */ /*!80016 DEFAULT ENCRYPTION='N' */;
-
+-- CREATE DATABASE `flight_booking` /*!40100 DEFAULT CHARACTER SET utf8mb3 COLLATE utf8mb3_bin */ /*!80016 DEFAULT ENCRYPTION='N' */;
+use flight_booking;
 CREATE TABLE `sys_user` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `username` varchar(45) COLLATE utf8mb3_bin NOT NULL,
