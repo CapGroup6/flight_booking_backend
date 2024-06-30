@@ -14,7 +14,7 @@ import javax.validation.constraints.NotBlank;
 @Data
 public class SysUserRequest {
 
-    @NotBlank(message = "user's name can't be valid")
+//    @NotBlank(message = "user's name can't be valid")
     private String username;
 
     @Schema(description = "password")

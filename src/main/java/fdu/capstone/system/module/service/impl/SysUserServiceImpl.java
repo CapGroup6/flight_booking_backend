@@ -38,7 +38,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     public String login(LoginUserRequest loginUserRequest) {
         SysUser sysUser = this.getOne(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, loginUserRequest.getUsername()));
+                .eq(SysUser::getEmail, loginUserRequest.getEmail()));
         if (Objects.isNull(sysUser)) {
             throw new BaseException(ResponseCode.SYS_USER_NOT_EXISTS);
         }
@@ -51,9 +51,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
 
         Map<String, Object> info = new HashMap<>();
-        info.put("username", sysUser.getUsername());
+        info.put("email", sysUser.getEmail());
         info.put("userId", sysUser.getId());
-        String token = JwtUtil.generateToken(sysUser.getUsername(), info, tokenSignSecret, tokenExpiredTime);
+        String token = JwtUtil.generateToken(sysUser.getEmail(), info, tokenSignSecret, tokenExpiredTime);
 
         return token;
     }
