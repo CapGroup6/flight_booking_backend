@@ -18,5 +18,6 @@ public interface ChatBotLogService extends IService<ChatBotLog> {
 
     public List<String> getChatbotLogListFromCacheBySessionId(String sessionId,String type);
 
+    String chat(Long userId, String sessionId, String prompt);
 
 }
