@@ -5,7 +5,9 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.amadeus.exceptions.ResponseException;
 import fdu.capstone.system.module.entity.ChatBotLog;
+import fdu.capstone.util.DateUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.time.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -37,7 +39,7 @@ public class ChatBotServiceImpl {
 
 
     @Autowired
-    AmadeusService amadeusService;
+    AmadeusServiceImpl amadeusServiceImpl;
     @Autowired
     StringRedisTemplate stringRedisTemplate;
 
@@ -52,7 +54,7 @@ public class ChatBotServiceImpl {
     private String[] flightQueryFields = {"departure", "destination", "departureDate", "roundTrip", "returnDate", "adultNumber", "childNumber"};
     private String[] preferenceFields = {"flightTakeoffTime", "flightArriveTime", "maxStops", "numberOfBaggage", "transitCountries"};
 
-    String flightSearchPrefix = "does this dialogue contain departure, destination, departure date,  return date, round trip,number of adult,number of child your response should be json-format containing all the provided fields, the field names should be departure,destination,departureDate,returnDate,roundTrip,adultNumber,childNumber, if the field's type is date,the return format should be YYYY-MM-DD HH:mm:ss,if year is not provided, use current year,  if month is not provided use current month, if HH,mm,ss is not provided use 00 as default, the input date format can be DD/MM ,MM/DD ,DD-MM,MM-DD. if the dialogue do not contain a field information, please exclude it from the response,you should consider the previous dialogue,if previous dialogue contains duplicated message you should remove the duplicated information content:";
+    String flightSearchPrefix = "does this dialogue contain departure, destination, departure date,  return date, round trip,number of adult,number of child your response should be json-format containing all the provided fields, the field names should be departure,destination,departureDate,returnDate,roundTrip,adultNumber,childNumber, if it is not a round trip set roundTrip false, else set roundTrip true , if the field's type is date,the return format should be YYYY-MM-DD HH:mm:ss,if year is not provided, use current year,  if month is not provided use current month, if HH,mm,ss is not provided use 00 as default, the input date format can be DD/MM ,MM/DD ,DD-MM,MM-DD. if the dialogue do not contain a field information, please exclude it from the response,you should consider the previous dialogue,if previous dialogue contains duplicated message you should remove the duplicated information content:";
 
     private String preferencePrefix = "does this dialogue contain flight takeoff time,flight arrive time, max stops ,number of baggage and transit countries, your response should be json-format containing all the provided fields, the field names should be flightTakeoffTime,flightArriveTime,maxStops,numberOfBaggage,transitCountries if the dialogue do not contain a field information, please exclude it from the response,for a field, if user give negative response,set the field to default value 9999, if user do not have any preference,give all the fields default value, you should consider the previous dialogue ,if previous dialogue contains duplicated message you should remove the duplicated information, content: ";
 
@@ -87,8 +89,15 @@ public class ChatBotServiceImpl {
                         String departureDate = flightQueryInfo.get("departureDate").toString();
                         String returnDate = flightQueryInfo.get("returnDate") == null ? null: flightQueryInfo.get("returnDate") .toString();
                         int adultNumber = (int)flightQueryInfo.get("adultNumber");
+                        departureDate = DateUtil.addTwoYears(departureDate,2);
+                        departureDate = DateUtil.convertToLocalDate(departureDate);
+                        if(returnDate!=null){
+                            returnDate = DateUtil.addTwoYears(returnDate,2);
+                            returnDate = DateUtil.convertToLocalDate(returnDate);
+
+                        }
                         try {
-                            return amadeusService.getFlightOffers(departure,destination,departureDate,returnDate,adultNumber);
+                            return amadeusServiceImpl.getFlightOffers(departure,destination,departureDate,returnDate,adultNumber);
                         } catch (ResponseException e) {
                             log.error("search flight info api error",e);
                             return "search flight info api error";
@@ -119,10 +128,17 @@ public class ChatBotServiceImpl {
                         String departure = flightQueryInfo.get("departure").toString();
                         String destination = flightQueryInfo.get("destination").toString();
                         String departureDate = flightQueryInfo.get("departureDate").toString();
+                        departureDate = DateUtil.addTwoYears(departureDate,2);
+                        departureDate = DateUtil.convertToLocalDate(departureDate);
                         String returnDate = flightQueryInfo.get("returnDate") == null ? null: flightQueryInfo.get("returnDate") .toString();
+                        if(returnDate!=null){
+                            returnDate = DateUtil.addTwoYears(returnDate,2);
+                            returnDate = DateUtil.convertToLocalDate(returnDate);
+
+                        }
                         int adultNumber = (int)flightQueryInfo.get("adultNumber");
                         try {
-                            return amadeusService.getFlightOffers(departure,destination,departureDate,returnDate,adultNumber);
+                            return amadeusServiceImpl.getFlightOffers(departure,destination,departureDate,returnDate,adultNumber);
                         } catch (ResponseException e) {
                             log.error("search flight info api error",e);
                             return "search flight info api error";
