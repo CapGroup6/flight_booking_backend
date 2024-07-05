@@ -20,5 +20,6 @@ Please install Redis before testing sorting and filtering
 For Windows user:
 To install Redis directly to windows, see this:
 https://github.com/tporadowski/redis/releases
+
 To check if Redis is running, run this in cmd (Redis uses port 6379 by default):
 netstat -nao | findstr 6379
