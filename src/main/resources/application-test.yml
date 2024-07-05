@@ -67,3 +67,4 @@ system:
       tokenSignSecret: "flight  booking"
       tokenExpiredTime: 360000000
       excludeUrls: "/**"
+
