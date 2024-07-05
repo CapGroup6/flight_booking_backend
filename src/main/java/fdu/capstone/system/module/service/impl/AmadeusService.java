@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.lang.reflect.Type;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -44,19 +45,35 @@ public class AmadeusService {
 
     public List<Map<String, Object>> getFlightOffers(String origin, String destination, String departureDate, String returnDate, int adults) throws ResponseException {
         validateFutureDate(departureDate);
-        if (returnDate != null && !returnDate.isEmpty()) {
+        if (returnDate != null && !returnDate.isEmpty()) { // round-trip
             validateFutureDate(returnDate);
+            try {
+                FlightOfferSearch[] offers = amadeus.shopping.flightOffersSearch.get(
+                        Params.with("originLocationCode", origin)
+                                .and("destinationLocationCode", destination)
+                                .and("departureDate", departureDate)
+                                .and("returnDate", returnDate)
+                                .and("adults", adults)
+                                .and("max", 12));
+                Type type = new com.google.gson.reflect.TypeToken<List<Map<String, Object>>>() {}.getType();
+                return gson.fromJson(gson.toJson(offers), type);
+            } catch (com.amadeus.exceptions.ClientException e) {
+                throw new RuntimeException("Failed to get flight offers.", e);
+            }
+        } else {    // one-way
+            try {
+                FlightOfferSearch[] offers = amadeus.shopping.flightOffersSearch.get(
+                        Params.with("originLocationCode", origin)
+                                .and("destinationLocationCode", destination)
+                                .and("departureDate", departureDate)
+                                .and("adults", adults)
+                                .and("max", 12));
+                Type type = new com.google.gson.reflect.TypeToken<List<Map<String, Object>>>() {}.getType();
+                return gson.fromJson(gson.toJson(offers), type);
+            } catch (com.amadeus.exceptions.ClientException e) {
+                throw new RuntimeException("Failed to get flight offers.", e);
+            }
         }
 
-        FlightOfferSearch[] offers = amadeus.shopping.flightOffersSearch.get(
-                Params.with("originLocationCode", origin)
-                        .and("destinationLocationCode", destination)
-                        .and("departureDate", departureDate)
-                        .and("returnDate", returnDate)
-                        .and("adults", adults)
-                        .and("max", 3));
-
-        Type type = new com.google.gson.reflect.TypeToken<List<Map<String, Object>>>() {}.getType();
-        return gson.fromJson(gson.toJson(offers), type);
     }
 }
