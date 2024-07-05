@@ -10,7 +10,7 @@ import java.util.*;
  * Date: 2024/6/25
  */
 @Service
-public class OpenAIService {
+public class ChatBotService {
 
     @Value("${openai.api.key}")
     private String apiKey;
@@ -22,7 +22,7 @@ public class OpenAIService {
     // Map to store conversation history for each user session
     private final Map<String, List<Map<String, String>>> conversationHistory = new HashMap<>();
 
-    public String getCompletion(String sessionId, String prompt) {
+    public synchronized String getCompletion(String sessionId, String prompt) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(apiKey);
@@ -36,8 +36,8 @@ public class OpenAIService {
         }});
 
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", "gpt-4o");
-        requestBody.put("messages", messages.toArray());
+        requestBody.put("model", "gpt-4");
+        requestBody.put("messages", messages);
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
@@ -67,3 +67,4 @@ public class OpenAIService {
         return response.substring(startIndex, endIndex);
     }
 }
+
