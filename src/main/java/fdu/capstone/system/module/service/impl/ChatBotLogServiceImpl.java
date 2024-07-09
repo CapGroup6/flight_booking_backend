@@ -36,8 +36,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-
+import java.util.concurrent.TimeUnit;
 
 
 @Service
@@ -53,7 +52,9 @@ public class ChatBotLogServiceImpl extends ServiceImpl<ChatBotLogMapper, ChatBot
 
     @Override
     public boolean addChatbotLog(ChatBotLog chatBotLog) {
-        redisTemplate.opsForList().rightPush(chatLogRedisKeyPrefix+chatBotLog.getSessionId()+"_"+chatBotLog.getChatType(), chatBotLog.getContent());
+        String redisKey = chatLogRedisKeyPrefix+chatBotLog.getSessionId()+"_"+chatBotLog.getChatType();
+        redisTemplate.opsForList().rightPush(redisKey, chatBotLog.getContent());
+        redisTemplate.expire(redisKey,3,TimeUnit.HOURS);
         return this.save(chatBotLog);
     }
 
@@ -70,7 +71,7 @@ public class ChatBotLogServiceImpl extends ServiceImpl<ChatBotLogMapper, ChatBot
     //interact wth opan ai api, added by Chi Xie
     @Override
     public String chat(Long userId, String sessionId, String prompt) {
-        // 调用OpenAI API的逻辑
+        // OpenAI API
         String apiUrl = "https://api.openai.com/v1/engines/davinci-codex/completions";
         RestTemplate restTemplate = new RestTemplate();
 
