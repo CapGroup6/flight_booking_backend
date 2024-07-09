@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter;
 
 public class DateUtil {
 
-    public static String addTwoYears(String dateStr,int years) {
+    public static String addYears(String dateStr, int years) {
         // Define the date format
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -14,7 +14,7 @@ public class DateUtil {
         LocalDateTime dateTime = LocalDateTime.parse(dateStr, formatter);
 
         // Add two years to the date-time
-        LocalDateTime newDateTime = dateTime.plusYears(2);
+        LocalDateTime newDateTime = dateTime.plusYears(years);
 
         // Format the new date-time back to a string
         return newDateTime.format(formatter);
