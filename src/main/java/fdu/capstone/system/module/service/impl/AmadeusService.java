@@ -56,6 +56,9 @@ public class AmadeusService {
                             .and("departureDate", departureDate)
                             .and("returnDate", returnDate)
                             .and("adults", adults)
+                            .and("children", children)
+                            .and("infants", infants)
+                            .and("travelClass", cabinClass)
                             .and("max", 6));
         } else { // one-way
             offers = amadeus.shopping.flightOffersSearch.get(
@@ -63,6 +66,9 @@ public class AmadeusService {
                             .and("destinationLocationCode", destination)
                             .and("departureDate", departureDate)
                             .and("adults", adults)
+                            .and("children", children)
+                            .and("infants", infants)
+                            .and("travelClass", cabinClass)
                             .and("max", 6));
         }
 
