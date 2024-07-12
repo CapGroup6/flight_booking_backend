@@ -1,15 +1,23 @@
 package fdu.capstone.system.module.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import fdu.capstone.system.module.entity.AirportLocationPair;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,6 +50,68 @@ public class SearchResultService {
         }
         return new ArrayList<>();
 //        return (List<Map<String, Object>>) redisTemplate.opsForValue().get(SEARCH_RESULTS_PREFIX + sessionId);
+    }
+
+    public List<AirportLocationPair> getStopoverList(List<Map<String, Object>> searchResult) throws JsonProcessingException {
+        return getStopoverList(searchResult, "oneway");
+    }
+    public List<AirportLocationPair> getStopoverList(List<Map<String, Object>> searchResult, String whichTrip) throws JsonProcessingException {
+        if (searchResult.isEmpty())
+            return new ArrayList<>();
+        Set<String> uniqueStopoverList = new LinkedHashSet<>();
+        Boolean roundtrip;
+        for (Map<String, Object> stringObjectMap : searchResult) {
+            ArrayList itinerariesArray = (ArrayList) stringObjectMap.get("itineraries"); // 1 item for one-way, 2 items for round-trip
+            roundtrip = (itinerariesArray.size() == 2); // flag of mode switch
+            int itineraryStart = 0, itineraryEnd = 0;
+            if (roundtrip) {
+                if (whichTrip.equals("round")) {
+                    itineraryEnd = 1;
+                } else if (whichTrip.equals("return")) {
+                    itineraryStart = 1;
+                    itineraryEnd = 1;
+                }
+            }
+            for (int i = itineraryStart; i < itineraryEnd + 1; ++i) {
+                Map<String, Object> itinerariesObject = (Map<String, Object>) itinerariesArray.get(i);
+                ArrayList segmentsArray = (ArrayList) itinerariesObject.get("segments");
+                if (segmentsArray.size() == 1) // No stopover
+                    break;
+                for (int j = 1; j < segmentsArray.size(); ++j) {
+                    Map<String, Object> transferSegment = (Map<String, Object>) segmentsArray.get(j);
+                    Map<String, Object> departureMap = (Map<String, Object>) transferSegment.get("departure");
+                    String iataCode = (String) departureMap.get("iataCode");
+                    uniqueStopoverList.add(iataCode);
+                }
+            }
+        }
+
+        List<AirportLocationPair> airportLocationPairs = new ArrayList<>();
+
+        String csvFile = "IATA.csv";
+        Map<String, String> airportLocationMap = new HashMap<>();
+        try (Reader reader = new InputStreamReader(getClass().getResourceAsStream("/" + csvFile));
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
+
+            for (CSVRecord record : csvParser) {
+                String airport = record.get("Airport");
+                String location = record.get("\uFEFFLocation"); // a Byte Order Mark is at the beginning of the csv
+                airportLocationMap.put(airport, location);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        for (String airport: uniqueStopoverList) {
+            String location = airportLocationMap.get(airport);
+            if (location != null) {
+                AirportLocationPair pair = new AirportLocationPair(airport, location);
+                airportLocationPairs.add(pair);
+            } else {
+                System.out.println("Location not found for airport "+airport);
+            }
+        }
+        return airportLocationPairs;
     }
 
     public List<Map<String, Object>> sortResultByPrice(List<Map<String, Object>> searchResult) {
@@ -111,6 +181,95 @@ public class SearchResultService {
         }
         System.out.println();
         return searchResult;
+    }
+
+    public List<Map<String, Object>> filter(List<Map<String, Object>> searchResult,
+                                            String whichTrip,
+                                            List<Integer> numStopover,
+                                            List<String> stopoverList,
+                                            int depStart, int depEnd,
+                                            int arrStart, int arrEnd) {
+        int num = searchResult.size();
+        Boolean[] select = new Boolean[num];
+        Arrays.fill(select, true);
+        int resultIndex = 0;
+        for (Map<String, Object> result: searchResult) {
+            ArrayList itinerariesArray = (ArrayList) result.get("itineraries");
+
+            int itineraryStart = 0, itineraryEnd = 0;
+            if (itinerariesArray.size() == 2) {
+                if (whichTrip.equals("round")) {
+                    itineraryEnd = 1;
+                } else if (whichTrip.equals("return")) {
+                    itineraryStart = 1;
+                    itineraryEnd = 1;
+                }
+            }
+            for (int i = itineraryStart; i < itineraryEnd + 1; ++i) {
+                Map<String, Object> itinerariesObject = (Map<String, Object>) itinerariesArray.get(i);
+                ArrayList segmentsArray = (ArrayList) itinerariesObject.get("segments");
+                int segmentNum = segmentsArray.size();
+                if (!numStopover.isEmpty()) { // filter: number of stopovers
+                    boolean match = false;
+                    for (Integer integer : numStopover) {
+                        if (integer.equals(segmentNum-1)) {
+                            match = true;
+                            break;
+                        }
+                    }
+                    select[resultIndex] = select[resultIndex] && match;
+                }
+                if (!select[resultIndex])
+                    break;
+
+                if (!stopoverList.isEmpty()) { // filter: stopover list
+                    boolean match = false;
+                    for (int j = 1; j < segmentsArray.size(); ++j) {
+                        Map<String, Object> transferSegment = (Map<String, Object>) segmentsArray.get(j);
+                        Map<String, Object> departureMap = (Map<String, Object>) transferSegment.get("departure");
+                        String iataCode = (String) departureMap.get("iataCode");
+                        for (String string : stopoverList) {
+                            if (string.equals(iataCode)) {
+                                match = true;
+                                break;
+                            }
+                        }
+                        if (match)
+                            break;
+                    }
+                    select[resultIndex] = select[resultIndex] && match;
+                }
+                if (!select[resultIndex])
+                    break;
+
+                Map<String, Object> departureSegment = (Map<String, Object>) segmentsArray.get(0);
+                Map<String, Object> departureMap = (Map<String, Object>) departureSegment.get("departure");
+                String departureTimeStr = (String) departureMap.get("at");
+                LocalDateTime dateTime = LocalDateTime.parse(departureTimeStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                int departTime = dateTime.getHour()*100+dateTime.getMinute(); // integer: HHMM
+                boolean match = (departTime >= depStart) && (departTime <= depEnd);
+                select[resultIndex] = select[resultIndex] && match;
+                if (!select[resultIndex])
+                    break;
+
+                Map<String, Object> arrivalSegment = (Map<String, Object>) segmentsArray.get(segmentNum-1);
+                Map<String, Object> arrivalMap = (Map<String, Object>) arrivalSegment.get("arrival");
+                String arrivalTimeStr = (String) arrivalMap.get("at");
+                dateTime = LocalDateTime.parse(arrivalTimeStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                int arrivalTime = dateTime.getHour()*100+dateTime.getMinute(); // integer: HHMM
+                match = (arrivalTime >= arrStart) && (arrivalTime <= arrEnd);
+                select[resultIndex] = select[resultIndex] && match;
+            }
+
+            resultIndex++;
+        }
+
+        List<Map<String, Object>> filterResult = new ArrayList<>();
+        for (int i = 0; i < searchResult.size(); ++i)
+            if (select[i]) {
+                filterResult.add(searchResult.get(i));
+            }
+        return filterResult;
     }
 
 }
