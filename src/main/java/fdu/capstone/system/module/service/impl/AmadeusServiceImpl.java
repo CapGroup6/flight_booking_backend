@@ -54,9 +54,9 @@ public class AmadeusServiceImpl {
     }
     public List<Map<String, Object>> getFlightOffers(String originCity, String destinationCity, String departureDate, String returnDate, int adults) throws ResponseException {
 //        validateFutureDate(departureDate);
-//        if (returnDate != null && !returnDate.isEmpty()) {
-//            validateFutureDate(returnDate);
-//        }
+        if (returnDate != null && !returnDate.isEmpty()) {
+            validateFutureDate(returnDate);
+        }
 
         List<Map<String, Object>> originAirports = getLocations(originCity);
         List<Map<String, Object>> destinationAirports = getLocations(destinationCity);

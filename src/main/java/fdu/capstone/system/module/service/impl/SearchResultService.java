@@ -114,6 +114,10 @@ public class SearchResultService {
         return airportLocationPairs;
     }
 
+    public Double getPrice(Map<String, Object> flight) {
+        return (Double) ((Map<String, Object>) flight.get("price")).get("total");
+    }
+
     public List<Map<String, Object>> sortResultByPrice(List<Map<String, Object>> searchResult) {
         if (searchResult.isEmpty())
             return searchResult;
@@ -128,12 +132,6 @@ public class SearchResultService {
 
             return value1.compareTo(value2);
         });
-        // test // output to console to check
-        for (Map<String, Object> stringObjectMap : searchResult) {
-            System.out.print(((Map<String, Object>) stringObjectMap.get("price")).get("total"));
-            System.out.print(" ");
-        }
-        System.out.println();
         return searchResult;
     }
 
@@ -174,13 +172,79 @@ public class SearchResultService {
 
             return duration1.compareTo(duration2);
         });
-        // test // output to console to check
-        for (Map<String, Object> stringObjectMap : searchResult) {
-            System.out.print(flightDurationInMinutes((String)(((Map<String, Object>) ((ArrayList) stringObjectMap.get("itineraries")).get(0)).get("duration"))));
-            System.out.print(" ");
-        }
-        System.out.println();
         return searchResult;
+    }
+    public Integer getDurationInMinute(Map<String, Object> flight) {
+        int duration = 0;
+        ArrayList itineraries = (ArrayList) flight.get("itineraries");
+        for (Object singleItinerary : itineraries) {
+            Map<String, Object> itineraryMap = (Map<String, Object>) singleItinerary;
+            String durationStr = (String) itineraryMap.get("duration");
+            duration = duration + flightDurationInMinutes(durationStr);
+        }
+        return duration;
+    }
+
+    public Integer getStopoverNum(Map<String, Object> flight) {
+        Integer stopoverNum = 0;
+        ArrayList itineraries = (ArrayList) flight.get("itineraries");
+        for (Object singleItinerary : itineraries) {
+            Map<String, Object> itineraryMap = (Map<String, Object>) singleItinerary;
+            ArrayList segmentsArray = (ArrayList) itineraryMap.get("segments");
+            stopoverNum = stopoverNum + segmentsArray.size() - 1;
+        }
+        return stopoverNum;
+    }
+
+    public List<Integer> getStopoverNum(List<Map<String, Object>> searchResult, String whichTrip) {
+        int num = searchResult.size();
+        List<Integer> stopoverNums = new ArrayList<>();
+        for (Map<String, Object> result: searchResult) {
+            ArrayList itinerariesArray = (ArrayList) result.get("itineraries");
+            int itineraryStart = 0, itineraryEnd = 0;
+            if (itinerariesArray.size() == 2) {
+                if (whichTrip.equals("round")) {
+                    itineraryEnd = 1;
+                } else if (whichTrip.equals("return")) {
+                    itineraryStart = 1;
+                    itineraryEnd = 1;
+                }
+            }
+            for (int i = itineraryStart; i < itineraryEnd + 1; ++i) {
+                Map<String, Object> itinerariesObject = (Map<String, Object>) itinerariesArray.get(i);
+                ArrayList segmentsArray = (ArrayList) itinerariesObject.get("segments");
+                int stopoverNum = segmentsArray.size() - 1;
+                if (!stopoverNums.contains(stopoverNum))
+                    stopoverNums.add(stopoverNum);
+            }
+        }
+        return stopoverNums;
+    }
+    public List<Map<String, Object>> sortResultByStopoverNum(List<Map<String, Object>> searchResult) {
+        if (searchResult.isEmpty())
+            return searchResult;
+        searchResult.sort((m1, m2) -> {
+            Integer stopover1 = 0, stopover2 = 0;
+            ArrayList itineraries1 = (ArrayList) m1.get("itineraries");
+            for (Object singleItinerary : itineraries1) {
+                Map<String, Object> itineraryMap = (Map<String, Object>) singleItinerary;
+                ArrayList segmentsArray = (ArrayList) itineraryMap.get("segments");
+                stopover1 = stopover1 + segmentsArray.size() - 1;
+            }
+            ArrayList itineraries2 = (ArrayList) m2.get("itineraries");
+            for (Object singleItinerary : itineraries2) {
+                Map<String, Object> itineraryMap = (Map<String, Object>) singleItinerary;
+                ArrayList segmentsArray = (ArrayList) itineraryMap.get("segments");
+                stopover2 = stopover2 + segmentsArray.size() - 1;
+            }
+            return stopover1.compareTo(stopover2);
+        });
+        return searchResult;
+    }
+
+    public List<Map<String, Object>> sortResultByPreference(List<Map<String, Object>> searchResult,
+                                                            List<Integer> weights, int k) {
+        return new ArrayList<>();
     }
 
     public List<Map<String, Object>> filter(List<Map<String, Object>> searchResult,
