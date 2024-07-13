@@ -56,14 +56,14 @@ public class AmadeusService {
                             .and("departureDate", departureDate)
                             .and("returnDate", returnDate)
                             .and("adults", adults)
-                            .and("max", 6));
+                            .and("max", 12));
         } else { // one-way
             offers = amadeus.shopping.flightOffersSearch.get(
                     Params.with("originLocationCode", origin)
                             .and("destinationLocationCode", destination)
                             .and("departureDate", departureDate)
                             .and("adults", adults)
-                            .and("max", 6));
+                            .and("max", 12));
         }
 
         // Create a map to cache airline names and city names to avoid multiple API calls

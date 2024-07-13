@@ -73,6 +73,3 @@ system:
       tokenExpiredTime: 360000000
       excludeUrls: "/**"
 
-openai:
-  api:
-    key:
