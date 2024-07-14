@@ -47,6 +47,8 @@ public class ChatBotServiceImpl {
 
     @Autowired
     private ChatBotLogServiceImpl chatBotLogService;
+    @Autowired
+    PreferenceSortService preferenceSortService;
 
 
     // Map to store conversation history for each user session
@@ -128,8 +130,6 @@ public class ChatBotServiceImpl {
         preferenceQuestionNameAndQuestion.put("stopScore", "Some people prefer direct flights over connecting flights. On a scale of 1 to 10, how important is it for you to have a direct flight ? ");
     }
 
-//    private String firstPreferenceQuestion = "lowPriceScore";
-
 
     public Object chat(Long userId, String sessionId, String prompt) {
         String allNecessaryInfoIsGathered = stringRedisTemplate.opsForValue().get(sessionId + roundCompleted);
@@ -153,8 +153,20 @@ public class ChatBotServiceImpl {
 //                openAIResponse = askOpenAI(userId, sessionId, p, "", updateChatType);
                 return p;
             } else {
+                if ((Boolean) updatedQueryInfo.get("roundTrip")) {
+                    if (updatedQueryInfo.get("returnDate") == null) {
+                        return flightSearchInfoQuestionNameAndQuestion.get("returnDate");
+                    }
+                }
                 List<Map<String, Object>> amadeusResult = searchAmadeus(updatedQueryInfo);
-                return amadeusResult == null ? "error occur while search flight info" : amadeusResult;
+                if (amadeusResult == null) {
+                    amadeusResult = searchAmadeus(updatedQueryInfo);
+                }
+                if (amadeusResult == null) {
+                    return "error occur while search flight info";
+                } else {
+                    return sortFlightInfoByPreference(amadeusResult, updatedQueryInfo);
+                }
             }
 
         } else {
@@ -177,56 +189,36 @@ public class ChatBotServiceImpl {
                         //user preference request is satisfied, and to search amadeus
                         JSONObject flightQueryInfo = JSON.parseObject(stringRedisTemplate.opsForValue().get(sessionId));
                         List<Map<String, Object>> amadeusResult = searchAmadeus(flightQueryInfo);
-                        return amadeusResult == null ? "error occur while search flight info" : amadeusResult;
+                        if (amadeusResult == null) {
+                            return "error occur while search flight info";
+                        } else {
+                            String preferenceRedisKey = sessionId + "_preference";
+                            String userPreferences = stringRedisTemplate.opsForValue().get(preferenceRedisKey);
+
+                            JSONObject userPreferencesJson = JSON.parseObject(userPreferences, JSONObject.class);
+                            return sortFlightInfoByPreference(amadeusResult, userPreferencesJson);
+                        }
                     } else {
                         return preferenceResult;
                     }
                 } else {
                     return flightInfoAskResp;
                 }
-
-                // code to this point, it means all the flight search query field information are completed
-
-
-//                Boolean roundTrip = flightQueryInfo.getBoolean("roundTrip");
-//                if (flightQueryInfo.size() == flightQueryFields.length || (roundTrip != null && !roundTrip && flightQueryInfo.size() == flightQueryFields.length - 1)) {
-//                    //user flight search info is satisfied, go to next level dialogue, to ask user's preference
-//                    String preferenceResult = extractPreferenceInfo(userId, sessionId, prompt);
-//                    if (preferenceResult.equals(COMPLETION)) {
-//                        stringRedisTemplate.opsForValue().set(sessionId + roundCompleted, COMPLETION, redisKeyExpiringTime, TimeUnit.HOURS);
-//                        //user preference request is satisfied, and to search amadeus
-//                        List<Map<String, Object>> amadeusResult = searchAmadeus(flightQueryInfo);
-//                        return amadeusResult == null ? "error occur while search flight info" : amadeusResult;
-//                    } else {
-//                        return preferenceResult;
-//                    }
-//                } else {
-//                    String flightInfoAskResp = askOpenAIForFlightInfo(userId, sessionId, prompt);
-//                    if (flightInfoAskResp.equals(COMPLETION)) {
-//                        // ask user's preferences
-//                        String preferenceResult = extractPreferenceInfo(userId, sessionId, prompt);
-//                        if (preferenceResult.equals(COMPLETION)) {
-//                            stringRedisTemplate.opsForValue().set(sessionId + roundCompleted, COMPLETION, redisKeyExpiringTime, TimeUnit.HOURS);
-//                            //user preference request is satisfied, and to search amadeus
-//                            List<Map<String, Object>> amadeusResult = searchAmadeus(flightQueryInfo);
-//                            return amadeusResult == null ? "error occur while search flight info" : amadeusResult;
-//                        } else {
-//                            return preferenceResult;
-//                        }
-//                    } else {
-//                        return flightInfoAskResp;
-//                    }
-//                }
             }
         }
     }
 
 
-//    private String askOpenAIToUpdateFlightQueryAndPreference(Long userId, String sessionId, String prompt) {
-//
-//
-//        return null;
-//    }
+    private List<Map<String, Object>> sortFlightInfoByPreference(List<Map<String, Object>> amadeusResult, JSONObject flightQueryInfo) {
+
+        List<Double> preferences = new ArrayList<>();
+        preferences.add(Double.parseDouble(flightQueryInfo.get(preferenceFields[0]).toString()));
+        preferences.add(Double.parseDouble(flightQueryInfo.get(preferenceFields[1]).toString()));
+        preferences.add(Double.parseDouble(flightQueryInfo.get(preferenceFields[2]).toString()));
+        List<Map<String, Object>> sortedResult = preferenceSortService.rrf(amadeusResult, preferences, 12);
+        return sortedResult;
+    }
+
 
     private String askOpenAIForFlightInfo(Long userId, String sessionId, String prompt) {
 
@@ -269,51 +261,6 @@ public class ChatBotServiceImpl {
         }
         return COMPLETION;
 
-
-//        List<String> unprovidedFieldList = new ArrayList<>();
-//        for (String field : flightQueryFields) {
-//            if (!flightQueryInfo.containsKey(field)) {
-//                unprovidedFieldList.add(field);
-//            }
-//        }
-
-//        Boolean roundTrip = flightQueryInfo.getBoolean("roundTrip");
-//        if (unprovidedFieldList.size() == 0 || (roundTrip != null && !roundTrip && flightQueryInfo.size() == flightQueryFields.length - 1)) {
-//            // go to next level dialogue, to ask user's preference
-//            resp = COMPLETION;
-//            return resp;
-//        } else {
-//            resp = "can your provide the below information: ";
-//            for (String unprovidedField : unprovidedFieldList) {
-//                switch (unprovidedField) {
-//                    case "departure":
-//                        resp = resp + " " + "what is your departure";
-//                        break;
-//                    case "destination":
-//                        resp = resp + " " + "what is your destination;";
-//                        break;
-//                    case "departureDate":
-//                        resp = resp + " " + "when is your departure date;";
-//                        break;
-//                    case "adultNumber":
-//                        resp = resp + " " + "how many adults will attend this flight;";
-//                        break;
-//                    case "childNumber":
-//                        resp = resp + " " + "how many children will attend this flight;";
-//                        break;
-//                    case "roundTrip":
-//                        resp = resp + " " + " is it a round trip";
-//                        break;
-//                    case "returnDate":
-//                        if (flightQueryInfo.getBoolean("roundTrip") != null &&
-//                                flightQueryInfo.getBoolean("roundTrip")) {
-//                            resp = resp + " " + "when is your return date";
-//                        }
-//                        break;
-//                }
-//            }
-//            return resp;
-//        }
     }
 
     public String askOpenAI(Long userId, String sessionId, String prompt, String preQuestion, String type) {
