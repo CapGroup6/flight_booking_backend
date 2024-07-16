@@ -46,9 +46,21 @@ public class AmadeusService {
     }
 
     public List<Map<String, Object>> getFlightOffers(String origin, String destination, String departureDate, String returnDate, int adults) throws ResponseException {
+        return getFlightOffers(origin, destination, departureDate, returnDate, adults, 0, "ECONOMY");
+    }
+
+    public List<Map<String, Object>> getFlightOffers(String origin, String destination, String departureDate, String returnDate, int adults, int children) throws ResponseException {
+        return getFlightOffers(origin, destination, departureDate, returnDate, adults, children, "ECONOMY");
+    }
+
+    public List<Map<String, Object>> getFlightOffers(String origin, String destination, String departureDate, String returnDate, int adults, String cabinClass) throws ResponseException {
+        return getFlightOffers(origin, destination, departureDate, returnDate, adults, 0, cabinClass);
+    }
+
+    public List<Map<String, Object>> getFlightOffers(String origin, String destination, String departureDate, String returnDate, int adults, int children, String cabinClass) throws ResponseException {
         validateFutureDate(departureDate);
         FlightOfferSearch[] offers;
-        if (returnDate != null && !returnDate.isEmpty()) { // round-trip
+        if (returnDate != null && !returnDate.isEmpty()) {
             validateFutureDate(returnDate);
             offers = amadeus.shopping.flightOffersSearch.get(
                     Params.with("originLocationCode", origin)
@@ -56,27 +68,29 @@ public class AmadeusService {
                             .and("departureDate", departureDate)
                             .and("returnDate", returnDate)
                             .and("adults", adults)
-                            .and("max", 12));
-        } else { // one-way
+                            .and("children", children)
+                            .and("travelClass", cabinClass)
+                            .and("max", 6));
+        } else {
             offers = amadeus.shopping.flightOffersSearch.get(
                     Params.with("originLocationCode", origin)
                             .and("destinationLocationCode", destination)
                             .and("departureDate", departureDate)
                             .and("adults", adults)
-                            .and("max", 12));
+                            .and("children", children)
+                            .and("travelClass", cabinClass)
+                            .and("max", 6));
         }
 
-        // Create a map to cache airline names and city names to avoid multiple API calls
+        // Create a map to cache airline names and city/airport names to avoid multiple API calls
         Map<String, String> airlineNameCache = new HashMap<>();
-        Map<String, String> cityNameCache = new HashMap<>();
+        Map<String, Map<String, String>> cityAirportNameCache = new HashMap<>();
 
         List<Map<String, Object>> modifiedOffers = new ArrayList<>();
 
         for (FlightOfferSearch offer : offers) {
-            // Convert offer to a map
             Map<String, Object> offerMap = gson.fromJson(gson.toJson(offer), Map.class);
 
-            // Process itineraries
             List<Map<String, Object>> itineraries = (List<Map<String, Object>>) offerMap.get("itineraries");
             for (Map<String, Object> itinerary : itineraries) {
                 List<Map<String, Object>> segments = (List<Map<String, Object>>) itinerary.get("segments");
@@ -92,11 +106,13 @@ public class AmadeusService {
                     String departureIataCode = (String) departure.get("iataCode");
                     String arrivalIataCode = (String) arrival.get("iataCode");
 
-                    String departureCityName = cityNameCache.computeIfAbsent(departureIataCode, this::getCityName);
-                    String arrivalCityName = cityNameCache.computeIfAbsent(arrivalIataCode, this::getCityName);
+                    Map<String, String> departureNames = cityAirportNameCache.computeIfAbsent(departureIataCode, this::getCityAndAirportName);
+                    Map<String, String> arrivalNames = cityAirportNameCache.computeIfAbsent(arrivalIataCode, this::getCityAndAirportName);
 
-                    departure.put("cityName", departureCityName);
-                    arrival.put("cityName", arrivalCityName);
+                    departure.put("cityName", departureNames.get("cityName"));
+                    departure.put("airportName", departureNames.get("airportName"));
+                    arrival.put("cityName", arrivalNames.get("cityName"));
+                    arrival.put("airportName", arrivalNames.get("airportName"));
 
                     // Remove the carrierCode field if needed
                     segment.remove("carrierCode");
@@ -116,22 +132,28 @@ public class AmadeusService {
                 return airlines[0].getCommonName();
             }
         } catch (ResponseException e) {
-            // Handle the exception (e.g., log it)
             e.printStackTrace();
         }
-        return carrierCode; // Fallback to carrier code if name not found
+        return carrierCode;
     }
 
-    private String getCityName(String iataCode) {
+    private Map<String, String> getCityAndAirportName(String iataCode) {
+        Map<String, String> nameMap = new HashMap<>();
         try {
             Location[] locations = amadeus.referenceData.locations.get(Params.with("keyword", iataCode).and("subType", Locations.ANY));
             if (locations.length > 0) {
-                return locations[0].getAddress().getCityName();
+                nameMap.put("cityName", locations[0].getAddress().getCityName());
+                nameMap.put("airportName", locations[0].getName());
             }
         } catch (ResponseException e) {
-            // Handle the exception (e.g., log it)
             e.printStackTrace();
         }
-        return iataCode; // Fallback to IATA code if city name not found
+        if (!nameMap.containsKey("cityName")) {
+            nameMap.put("cityName", iataCode);
+        }
+        if (!nameMap.containsKey("airportName")) {
+            nameMap.put("airportName", iataCode);
+        }
+        return nameMap;
     }
 }
