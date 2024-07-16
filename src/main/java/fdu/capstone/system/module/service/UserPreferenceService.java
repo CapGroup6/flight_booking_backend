@@ -12,5 +12,7 @@ import java.util.List;
 public interface UserPreferenceService extends IService<UserPreferenceEntity> {
     public boolean saveUserPreference(UserPreferenceEntity userPreferenceEntity);
     public List<UserPreferenceEntity> getUserPreferenceByUserId(Long userId);
+    public UserPreferenceEntity getUserPreferenceByUserIdAndPreference(Long userId,String preferenceName) ;
 
-}
+
+    }

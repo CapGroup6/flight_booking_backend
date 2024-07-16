@@ -74,6 +74,3 @@ system:
       excludeUrls: "/**"
 
 
-openai:
-  api:
-    key:

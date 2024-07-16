@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
 import com.amadeus.exceptions.ResponseException;
 import fdu.capstone.system.module.entity.ChatBotLog;
+import fdu.capstone.system.module.entity.UserPreferenceEntity;
 import fdu.capstone.util.DateUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,9 @@ public class ChatBotServiceImpl {
     private ChatBotLogServiceImpl chatBotLogService;
     @Autowired
     PreferenceSortService preferenceSortService;
+
+    @Autowired
+    UserPreferenceServiceImpl userPreferenceService;
 
 
     // Map to store conversation history for each user session
@@ -186,15 +190,17 @@ public class ChatBotServiceImpl {
                     String preferenceResult = extractPreferenceInfo(userId, sessionId, prompt);
                     if (preferenceResult.equals(COMPLETION)) {
                         stringRedisTemplate.opsForValue().set(sessionId + roundCompleted, COMPLETION, redisKeyExpiringTime, TimeUnit.HOURS);
+                        String preferenceRedisKey = sessionId + "_preference";
+                        String userPreferences = stringRedisTemplate.opsForValue().get(preferenceRedisKey);
+                        if (userId != null) {
+                            saveUserPreference(userId, userPreferences);
+                        }
                         //user preference request is satisfied, and to search amadeus
                         JSONObject flightQueryInfo = JSON.parseObject(stringRedisTemplate.opsForValue().get(sessionId));
                         List<Map<String, Object>> amadeusResult = searchAmadeus(flightQueryInfo);
                         if (amadeusResult == null) {
                             return "error occur while search flight info";
                         } else {
-                            String preferenceRedisKey = sessionId + "_preference";
-                            String userPreferences = stringRedisTemplate.opsForValue().get(preferenceRedisKey);
-
                             JSONObject userPreferencesJson = JSON.parseObject(userPreferences, JSONObject.class);
                             return sortFlightInfoByPreference(amadeusResult, userPreferencesJson);
                         }
@@ -208,6 +214,18 @@ public class ChatBotServiceImpl {
         }
     }
 
+    private void saveUserPreference(Long userId, String userPreference) {
+
+        UserPreferenceEntity userPreferenceEntity = userPreferenceService.getUserPreferenceByUserIdAndPreference(userId, "chatBotInputPreference");
+        if (userPreferenceEntity != null) {
+            userPreferenceEntity.setPreferenceValue(JSON.toJSONString(userPreference));
+            userPreferenceService.saveOrUpdate(userPreferenceEntity);
+        } else {
+            userPreferenceEntity = UserPreferenceEntity.builder().userId(userId).preferenceName("chatBotInputPreference").preferenceValue(JSON.toJSONString(userPreference))
+                    .build();
+            userPreferenceService.saveUserPreference(userPreferenceEntity);
+        }
+    }
 
     private List<Map<String, Object>> sortFlightInfoByPreference(List<Map<String, Object>> amadeusResult, JSONObject flightQueryInfo) {
 
@@ -226,32 +244,35 @@ public class ChatBotServiceImpl {
 //        String resp;
         String flightQueryInfoRaw = stringRedisTemplate.opsForValue().get(sessionId);
 
-        JSONObject flightQueryInfo = JSON.parseObject(flightQueryInfoRaw, JSONObject.class);
-        Boolean roundTrip = flightQueryInfo.getBoolean("roundTrip");
-        if (flightQueryInfo.size() == flightQueryFields.length || (roundTrip != null && !roundTrip && flightQueryInfo.size() == flightQueryFields.length - 1)) {
+        JSONObject flightQueryInfoOrign = JSON.parseObject(flightQueryInfoRaw, JSONObject.class);
+        Boolean roundTrip = flightQueryInfoOrign.getBoolean("roundTrip");
+        if (flightQueryInfoOrign.size() == flightQueryFields.length || (roundTrip != null && !roundTrip && flightQueryInfoOrign.size() == flightQueryFields.length - 1)) {
             // go to next level dialogue, to ask user's preference
             return COMPLETION;
         }
 
         prompt = flightSearchInfoQuestionNameAndQuestion.get(sessionNextFlightSearchQuestionMap.get(sessionId)) + prompt;
 
+        JSONObject flightQueryInfoNew = new JSONObject();
         String openAIResponse = askOpenAI(userId, sessionId, prompt, flightSearchPrefix, flightFieldChatType);
         try {
-            flightQueryInfo = JSON.parseObject(openAIResponse, JSONObject.class);
+            flightQueryInfoNew = JSON.parseObject(openAIResponse, JSONObject.class);
         } catch (JSONException e) {
             log.error("open ai return data format is error, try it again ", e);
             openAIResponse = askOpenAI(userId, sessionId, prompt, flightSearchPrefix, flightFieldChatType);
-            flightQueryInfo = JSON.parseObject(openAIResponse, JSONObject.class);
+            flightQueryInfoNew = JSON.parseObject(openAIResponse, JSONObject.class);
         }
 
+        flightQueryInfoNew.putAll(flightQueryInfoOrign.getInnerMap());
+
         //first save openai response to redis
-        stringRedisTemplate.opsForValue().set(sessionId, openAIResponse, redisKeyExpiringTime, TimeUnit.HOURS);
+        stringRedisTemplate.opsForValue().set(sessionId, JSON.toJSONString(flightQueryInfoNew), redisKeyExpiringTime, TimeUnit.HOURS);
 
         for (String queryFiled : flightQueryFields) {
-            Object fieldValue = flightQueryInfo.get(queryFiled);
+            Object fieldValue = flightQueryInfoNew.get(queryFiled);
             if (fieldValue == null) {
                 if (queryFiled.equals("returnDate")) {
-                    if (!(Boolean) flightQueryInfo.get("roundTrip")) {
+                    if (!(Boolean) flightQueryInfoNew.get("roundTrip")) {
                         continue;
                     }
                 }
@@ -342,26 +363,28 @@ public class ChatBotServiceImpl {
         }
 
 
-        JSONObject userPreferencesJson = JSON.parseObject(userPreferences, JSONObject.class);
+        JSONObject userPreferencesJsonOrign = JSON.parseObject(userPreferences, JSONObject.class);
 
         String openAIResponse = "";
-        if (userPreferencesJson.size() != preferenceFields.length) {
+        JSONObject userPreferencesJsonNew = new JSONObject();
+        if (userPreferencesJsonOrign.size() != preferenceFields.length) {
 
             String questionField = sessionNextPreferenceQuestionMap.get(sessionId);
             prompt = preferenceQuestionNameAndQuestion.get(questionField) + prompt;
             try {
                 openAIResponse = askOpenAI(userId, sessionId, prompt, preferencePrefix, preferenceFieldChatType);
-                userPreferencesJson = JSON.parseObject(openAIResponse, JSONObject.class);
+                userPreferencesJsonNew = JSON.parseObject(openAIResponse, JSONObject.class);
             } catch (JSONException e) {
                 log.error("open ai return data format is error, try it again ", e);
                 openAIResponse = askOpenAI(userId, sessionId, prompt, preferencePrefix, preferenceFieldChatType);
-                userPreferencesJson = JSON.parseObject(openAIResponse, JSONObject.class);
+                userPreferencesJsonNew = JSON.parseObject(openAIResponse, JSONObject.class);
             }
+            userPreferencesJsonNew.putAll(userPreferencesJsonOrign.getInnerMap());
 
-            stringRedisTemplate.opsForValue().set(preferenceRedisKey, openAIResponse, redisKeyExpiringTime, TimeUnit.HOURS);
+            stringRedisTemplate.opsForValue().set(preferenceRedisKey, JSON.toJSONString(userPreferencesJsonNew), redisKeyExpiringTime, TimeUnit.HOURS);
 
             for (String preferenceField : preferenceFields) {
-                if (userPreferencesJson.get(preferenceField) == null) {
+                if (userPreferencesJsonNew.get(preferenceField) == null) {
                     sessionNextPreferenceQuestionMap.put(sessionId, preferenceField);
                     resp = preferenceQuestionNameAndQuestion.get(preferenceField);
                     break;
@@ -370,6 +393,7 @@ public class ChatBotServiceImpl {
             return resp;
         } else {
             // all the preference information are provided
+
             return COMPLETION;
         }
     }
