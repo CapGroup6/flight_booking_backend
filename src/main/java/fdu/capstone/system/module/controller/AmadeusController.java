@@ -41,6 +41,8 @@ public class AmadeusController {
                                                      @RequestParam String departureDate,
                                                      @RequestParam(required = false) String returnDate,
                                                      @RequestParam int adults,
+                                                     @RequestParam(required = false, defaultValue = "0") int children,
+                                                     @RequestParam(required = false, defaultValue = "ECONOMY") String cabinClass,
                                                      HttpSession session) throws ResponseException {
         // test
         System.out.println("AmadeusController getFlightOffers()");

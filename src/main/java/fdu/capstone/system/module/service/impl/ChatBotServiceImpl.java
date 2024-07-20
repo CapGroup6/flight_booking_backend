@@ -2,9 +2,11 @@ package fdu.capstone.system.module.service.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
 import com.amadeus.exceptions.ResponseException;
 import fdu.capstone.system.module.entity.ChatBotLog;
+import fdu.capstone.system.module.entity.UserPreferenceEntity;
 import fdu.capstone.util.DateUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -45,22 +48,55 @@ public class ChatBotServiceImpl {
 
     @Autowired
     private ChatBotLogServiceImpl chatBotLogService;
+    @Autowired
+    PreferenceSortService preferenceSortService;
+
+    @Autowired
+    UserPreferenceServiceImpl userPreferenceService;
 
 
     // Map to store conversation history for each user session
     private final Map<String, List<Map<String, String>>> conversationHistory = new HashMap<>();
 
     private String[] flightQueryFields = {"departure", "destination", "departureDate", "roundTrip", "returnDate", "adultNumber", "childNumber"};
-    private String[] preferenceFields = {"flightTakeoffTime", "flightArriveTime", "maxStops", "numberOfBaggage", "transitCountries"};
+    //    private String[] preferenceFields = {"flightTakeoffTime", "flightArriveTime", "maxStops", "numberOfBaggage", "transitCountries"};
+    private String[] preferenceFields = {"lowPriceScore", "durationScore", "stopScore"};
 
-    String flightSearchPrefix = "does this dialogue contain departure, destination, departure date,  return date, round trip,number of adult,number of child, your response should only be json-format containing all the provided fields, the field names should be departure,destination,departureDate,returnDate,roundTrip,adultNumber,childNumber, if it is not a round trip set roundTrip false, else set roundTrip true , if the field's type is date,the return format should be YYYY-MM-DD HH:mm:ss,if year is not provided, use current year,  if month is not provided use current month,if day is not provided use 01 as default , if HH,mm,ss is not provided use 00 as default, the input date format can be DD/MM ,MM/DD ,DD-MM,MM-DD. if the dialogue do not contain a field information, please exclude it from the response,you should consider the previous dialogue,if previous dialogue contains duplicated message you should remove the duplicated information. remember the return should be parsable json format. content:";
+    String flightSearchPrefix = "This dialogue may contain the following fields: departure, destination, departure date, return date, round trip, number of adults, number of children.\n" +
+            "    Your response should only be in JSON format, containing all the provided fields.\n" +
+            "    Field names should be: departure, destination, departureDate, returnDate, roundTrip, adultNumber, childNumber.\n" +
+            "    If it is not a round trip, set roundTrip to false, otherwise set roundTrip to true.\n" +
+            "    For date fields, the return format should be YYYY-MM-DD HH:mm:ss.\n" +
+            "    If the year is not provided, use the current year.\n" +
+            "    If the month is not provided, use the current month.\n" +
+            "    If the day is not provided, use 01 as default.\n" +
+            "    If HH, mm, ss are not provided, use 00 as default.\n" +
+            "    The input date formats can be DD/MM, MM/DD, DD-MM, or MM-DD.\n" +
+            "    If the dialogue does not contain information for a field, exclude it from the response.\n" +
+            "    Consider the previous dialogue as well, and remove any duplicated information.\n" +
+            "    The returned JSON should be parsable.\n" +
+            "    Content:";
 
-    private String preferencePrefix = "does this dialogue contain flight takeoff time,flight arrive time, max stops ,number of baggage and transit countries, your response should be json-format containing all the provided fields, the field names should be flightTakeoffTime,flightArriveTime,maxStops,numberOfBaggage,transitCountries if the dialogue do not contain a field information, please exclude it from the response,for a field, if user give negative response,set the field to default null, if user do not have any preference,give all the fields default value, you should consider the previous dialogue ,if previous dialogue contains duplicated message you should remove the duplicated information, content: ";
+    private String preferencePrefix = " This dialogue may contain feedback on the user's evaluations of low price preference, flight duration preference, and the number of flight stops preference.\n" +
+            "    Your response should be in JSON format, containing all the provided fields: lowPriceScore, durationScore, stopScore.\n" +
+            "    If the dialogue does not contain information for a field, exclude it from the response.\n" +
+            "    For any field where the user gives a negative response, set the field to 0.\n" +
+            "    If the user does not express any preference, give all fields a default value.\n" +
+            "    Consider the previous dialogue as well, and remove any duplicated information.\n" +
+            "    The returned JSON should be parsable.\n" +
+            "    Content:";
+    private String firstFlightSearchFieldQuestion = "Hi there! let me assist you to find best flight information firstly, please tell me: Where are you flying from  where would you like to go, when would you like to go, is it a round trip, if it is a round trip, when is the return date";
+    //    private String firstPreferenceSearchFieldQuestion = "great,you have provided all necessary information,now could please provide your preferences regarding  when would like your flight to take off ?  when would like your flight to arrive ? how many stops do you like to take ?  how many baggage do you need to take ? if you flight need to transit to other countries, which countries do you prefer? ";
+    private String firstPreferenceSearchFieldQuestion = "Great! You have provided all the necessary information. Now  please answer my first question regarding your flight preference: On a scale of 1 to 10, how important is the price of your flight ticket to you ?";
 
-    private String firstFlightSearchFieldQuestion = "Hi there! let me assist you to find best flight information firstly, please tell me: Where are you flying from , where would you like to go, when would you like to go, is it a round trip, if it is a round trip, when is the return date";
-    private String firstPreferenceSearchFieldQuestion = "great,you have provided all necessary information,now could please provide your preferences regarding  when would like your flight to take off ?  when would like your flight to arrive ? how many stops do you like to take ?  how many baggage do you need to take ? if you flight need to transit to other countries, which countries do you prefer? ";
-
-    private String updatedQuestions = "user is trying to update the departure, destination, departure date,  return date, round trip,number of adult,number of child ,flight takeoff time,flight arrive time, max stops ,number of baggage and transit countries. please return the updated  information in json-format , the field  should be departure,destination,departureDate,returnDate,roundTrip,adultNumber,childNumber, flightTakeoffTime,flightArriveTime,maxStops,numberOfBaggage,transitCountries, also add a flag named isChange to indicate if there are any change in the listed fields compared to before information. if field's type is date,the return format should be YYYY-MM-DD HH:mm:ss. your response should only be json-format, if previous dialogue contains duplicated message you should remove the duplicated information, content:  ";
+    private String updatedQuestions = " The user is trying to update the following fields: departure, destination, departure date, return date, round trip, number of adults, number of children, evaluations of low price preference, flight duration preference, and the number of flight stops preference.\n" +
+            "    Please return the updated information in JSON format.\n" +
+            "    The field names should be: departure, destination, departureDate, returnDate, roundTrip, adultNumber, childNumber, lowPriceScore, durationScore, stopScore.\n" +
+            "    Also, add a flag named isChange to indicate if there are any changes in the listed fields compared to the previous information.\n" +
+            "    For date fields, the return format should be YYYY-MM-DD HH:mm:ss.\n" +
+            "    Your response should only be in JSON format.\n" +
+            "    If the previous dialogue contains duplicated information, remove the duplicates.\n" +
+            "    Content: ";
     private String flightFieldChatType = "flightInfo";
     private String preferenceFieldChatType = "preference";
     private String updateChatType = "all";
@@ -73,21 +109,68 @@ public class ChatBotServiceImpl {
 
     private static final String COMPLETION = "completion";
 
+    private static Map<String, String> flightSearchInfoQuestionNameAndQuestion = new HashMap<>();
+
+    private static Map<String, String> preferenceQuestionNameAndQuestion = new HashMap<>();
+
+    private Map<String, String> sessionNextPreferenceQuestionMap = new ConcurrentHashMap<>();
+    private Map<String, String> sessionNextFlightSearchQuestionMap = new ConcurrentHashMap<>();
+    ;
+
+    static {
+//        when would you like to go, is it a round trip, if it is a round trip, when is the return date
+//        "departure", "destination", "departureDate", "roundTrip", "returnDate", "adultNumber", "childNumber"
+        flightSearchInfoQuestionNameAndQuestion.put("departure", "Hi there! Let me assist you in finding the best flight information. Firstly, please tell me: Where are you flying from ?  ");
+        flightSearchInfoQuestionNameAndQuestion.put("destination", "where would you like to go? ");
+        flightSearchInfoQuestionNameAndQuestion.put("departureDate", "when would you like to go? ");
+        flightSearchInfoQuestionNameAndQuestion.put("roundTrip", "is it a round trip? ");
+        flightSearchInfoQuestionNameAndQuestion.put("returnDate", "It is a round trip, so when would you like to come back? ");
+        flightSearchInfoQuestionNameAndQuestion.put("adultNumber", "how many adults will be traveling on this flight?  ");
+        flightSearchInfoQuestionNameAndQuestion.put("childNumber", "how many kids will go with you? ");
+
+
+        preferenceQuestionNameAndQuestion.put("lowPriceScore", "On a scale of 1 to 10, how important is the price of your flight ticket to you ? ");
+        preferenceQuestionNameAndQuestion.put("durationScore", "On a scale of 1 to 10, how important is the flight duration to you ? ");
+        preferenceQuestionNameAndQuestion.put("stopScore", "Some people prefer direct flights over connecting flights. On a scale of 1 to 10, how important is it for you to have a direct flight ? ");
+    }
+
 
     public Object chat(Long userId, String sessionId, String prompt) {
         String allNecessaryInfoIsGathered = stringRedisTemplate.opsForValue().get(sessionId + roundCompleted);
         if (allNecessaryInfoIsGathered != null && allNecessaryInfoIsGathered.equals(COMPLETION)) {
             // user try to update  query and preference info
-            String openAIResponse = askOpenAI(userId, sessionId, prompt, updatedQuestions, updateChatType);
-            JSONObject updatedQueryInfo = JSON.parseObject(openAIResponse, JSONObject.class);
+            String openAIResponse = null;
+            JSONObject updatedQueryInfo = null;
+            try {
+                openAIResponse = askOpenAI(userId, sessionId, prompt, updatedQuestions, updateChatType);
+                updatedQueryInfo = JSON.parseObject(openAIResponse, JSONObject.class);
+            } catch (JSONException e) {
+                log.error("open ai return data format is error, try it again ", e);
+                openAIResponse = askOpenAI(userId, sessionId, prompt, updatedQuestions, updateChatType);
+                updatedQueryInfo = JSON.parseObject(openAIResponse, JSONObject.class);
+            }
+
             boolean isUpdated = (Boolean) updatedQueryInfo.get("isChange");
-            if(!isUpdated){
-                String p = "looks like user did not updated the existed information, please give him/her a nice notice to update those information";
+            if (!isUpdated) {
+//                String p = "looks like user did not updated the existed information, please give him/her a nice notice to update those information";
+                String p = "looks like you do not updated the existed information, please update your flight search information";
 //                openAIResponse = askOpenAI(userId, sessionId, p, "", updateChatType);
                 return p;
-            }else {
-               List<Map<String, Object>> amadeusResult =  searchAmadeus(updatedQueryInfo);
-                return amadeusResult == null ? "error occur while search flight info" : amadeusResult;
+            } else {
+                if ((Boolean) updatedQueryInfo.get("roundTrip")) {
+                    if (updatedQueryInfo.get("returnDate") == null) {
+                        return flightSearchInfoQuestionNameAndQuestion.get("returnDate");
+                    }
+                }
+                List<Map<String, Object>> amadeusResult = searchAmadeus(updatedQueryInfo);
+                if (amadeusResult == null) {
+                    amadeusResult = searchAmadeus(updatedQueryInfo);
+                }
+                if (amadeusResult == null) {
+                    return "error occur while search flight info";
+                } else {
+                    return sortFlightInfoByPreference(amadeusResult, updatedQueryInfo);
+                }
             }
 
         } else {
@@ -97,107 +180,108 @@ public class ChatBotServiceImpl {
             if (flightQueryInfoRaw == null) {
                 //first user build connection with the chatbot service
                 stringRedisTemplate.opsForValue().set(sessionId, "{}", redisKeyExpiringTime, TimeUnit.HOURS);
-                return firstFlightSearchFieldQuestion;
+//                return firstFlightSearchFieldQuestion;
+                sessionNextFlightSearchQuestionMap.put(sessionId, flightQueryFields[0]);
+                return flightSearchInfoQuestionNameAndQuestion.get(flightQueryFields[0]);
             } else {
                 // flightQueryInfoRaw is not null, it means this is not the connection dialogue
-                JSONObject flightQueryInfo = JSON.parseObject(flightQueryInfoRaw, JSONObject.class);
-                Boolean roundTrip = flightQueryInfo.getBoolean("roundTrip");
-                if (flightQueryInfo.size() == flightQueryFields.length || (roundTrip != null && !roundTrip && flightQueryInfo.size() == flightQueryFields.length - 1)) {
-                    //user flight search info is satisfied, go to next level dialogue, to ask user's preference
+                String flightInfoAskResp = askOpenAIForFlightInfo(userId, sessionId, prompt);
+                if (flightInfoAskResp.equals(COMPLETION)) {
                     String preferenceResult = extractPreferenceInfo(userId, sessionId, prompt);
                     if (preferenceResult.equals(COMPLETION)) {
                         stringRedisTemplate.opsForValue().set(sessionId + roundCompleted, COMPLETION, redisKeyExpiringTime, TimeUnit.HOURS);
+                        String preferenceRedisKey = sessionId + "_preference";
+                        String userPreferences = stringRedisTemplate.opsForValue().get(preferenceRedisKey);
+                        if (userId != null) {
+                            saveUserPreference(userId, userPreferences);
+                        }
                         //user preference request is satisfied, and to search amadeus
+                        JSONObject flightQueryInfo = JSON.parseObject(stringRedisTemplate.opsForValue().get(sessionId));
                         List<Map<String, Object>> amadeusResult = searchAmadeus(flightQueryInfo);
-                        return amadeusResult == null ? "error occur while search flight info" : amadeusResult;
+                        if (amadeusResult == null) {
+                            return "error occur while search flight info";
+                        } else {
+                            JSONObject userPreferencesJson = JSON.parseObject(userPreferences, JSONObject.class);
+                            return sortFlightInfoByPreference(amadeusResult, userPreferencesJson);
+                        }
                     } else {
                         return preferenceResult;
                     }
                 } else {
-                    String flightInfoAskResp = askOpenAIForFlightInfo(userId, sessionId, prompt);
-                    if (flightInfoAskResp.equals(COMPLETION)) {
-                        // ask user's preferences
-                        String preferenceResult = extractPreferenceInfo(userId, sessionId, prompt);
-                        if (preferenceResult.equals(COMPLETION)) {
-                            stringRedisTemplate.opsForValue().set(sessionId + roundCompleted, COMPLETION, redisKeyExpiringTime, TimeUnit.HOURS);
-                            //user preference request is satisfied, and to search amadeus
-                            List<Map<String, Object>> amadeusResult = searchAmadeus(flightQueryInfo);
-                            return amadeusResult == null ? "error occur while search flight info" : amadeusResult;
-                        } else {
-                            return preferenceResult;
-                        }
-                    } else {
-                        return flightInfoAskResp;
-                    }
+                    return flightInfoAskResp;
                 }
             }
         }
     }
 
+    private void saveUserPreference(Long userId, String userPreference) {
 
-    private String askOpenAIToUpdateFlightQueryAndPreference(Long userId, String sessionId, String prompt) {
-
-
-        return null;
+        UserPreferenceEntity userPreferenceEntity = userPreferenceService.getUserPreferenceByUserIdAndPreference(userId, "chatBotInputPreference");
+        if (userPreferenceEntity != null) {
+            userPreferenceEntity.setPreferenceValue(JSON.toJSONString(userPreference));
+            userPreferenceService.saveOrUpdate(userPreferenceEntity);
+        } else {
+            userPreferenceEntity = UserPreferenceEntity.builder().userId(userId).preferenceName("chatBotInputPreference").preferenceValue(JSON.toJSONString(userPreference))
+                    .build();
+            userPreferenceService.saveUserPreference(userPreferenceEntity);
+        }
     }
+
+    private List<Map<String, Object>> sortFlightInfoByPreference(List<Map<String, Object>> amadeusResult, JSONObject flightQueryInfo) {
+
+        List<Double> preferences = new ArrayList<>();
+        preferences.add(Double.parseDouble(flightQueryInfo.get(preferenceFields[0]).toString()));
+        preferences.add(Double.parseDouble(flightQueryInfo.get(preferenceFields[1]).toString()));
+        preferences.add(Double.parseDouble(flightQueryInfo.get(preferenceFields[2]).toString()));
+        List<Map<String, Object>> sortedResult = preferenceSortService.rrf(amadeusResult, preferences, 12);
+        return sortedResult;
+    }
+
 
     private String askOpenAIForFlightInfo(Long userId, String sessionId, String prompt) {
 
 
-        String resp;
+//        String resp;
         String flightQueryInfoRaw = stringRedisTemplate.opsForValue().get(sessionId);
 
-        JSONObject flightQueryInfo = JSON.parseObject(flightQueryInfoRaw, JSONObject.class);
+        JSONObject flightQueryInfoOrign = JSON.parseObject(flightQueryInfoRaw, JSONObject.class);
+        Boolean roundTrip = flightQueryInfoOrign.getBoolean("roundTrip");
+        if (flightQueryInfoOrign.size() == flightQueryFields.length || (roundTrip != null && !roundTrip && flightQueryInfoOrign.size() == flightQueryFields.length - 1)) {
+            // go to next level dialogue, to ask user's preference
+            return COMPLETION;
+        }
 
+        prompt = flightSearchInfoQuestionNameAndQuestion.get(sessionNextFlightSearchQuestionMap.get(sessionId)) + prompt;
+
+        JSONObject flightQueryInfoNew = new JSONObject();
         String openAIResponse = askOpenAI(userId, sessionId, prompt, flightSearchPrefix, flightFieldChatType);
-        flightQueryInfo = JSON.parseObject(openAIResponse, JSONObject.class);
+        try {
+            flightQueryInfoNew = JSON.parseObject(openAIResponse, JSONObject.class);
+        } catch (JSONException e) {
+            log.error("open ai return data format is error, try it again ", e);
+            openAIResponse = askOpenAI(userId, sessionId, prompt, flightSearchPrefix, flightFieldChatType);
+            flightQueryInfoNew = JSON.parseObject(openAIResponse, JSONObject.class);
+        }
+
+        flightQueryInfoNew.putAll(flightQueryInfoOrign.getInnerMap());
 
         //first save openai response to redis
-        stringRedisTemplate.opsForValue().set(sessionId, openAIResponse, redisKeyExpiringTime, TimeUnit.HOURS);
-        List<String> unprovidedFieldList = new ArrayList<>();
-        for (String field : flightQueryFields) {
-            if (!flightQueryInfo.containsKey(field)) {
-                unprovidedFieldList.add(field);
-            }
-        }
+        stringRedisTemplate.opsForValue().set(sessionId, JSON.toJSONString(flightQueryInfoNew), redisKeyExpiringTime, TimeUnit.HOURS);
 
-        Boolean roundTrip = flightQueryInfo.getBoolean("roundTrip");
-        if (unprovidedFieldList.size() == 0 || (roundTrip != null && !roundTrip && flightQueryInfo.size() == flightQueryFields.length - 1)) {
-            // go to next level dialogue, to ask user's preference
-            resp = COMPLETION;
-            return resp;
-        } else {
-            resp = "can your provide the below information: ";
-            for (String unprovidedField : unprovidedFieldList) {
-                switch (unprovidedField) {
-                    case "departure":
-                        resp = resp + " " + "what is your departure";
-                        break;
-                    case "destination":
-                        resp = resp + " " + "what is your destination;";
-                        break;
-                    case "departureDate":
-                        resp = resp + " " + "when is your departure date;";
-                        break;
-                    case "adultNumber":
-                        resp = resp + " " + "how many adults will attend this flight;";
-                        break;
-                    case "childNumber":
-                        resp = resp + " " + "how many children will attend this flight;";
-                        break;
-                    case "roundTrip":
-                        resp = resp + " " + " is it a round trip";
-                        break;
-                    case "returnDate":
-                        if (flightQueryInfo.getBoolean("roundTrip") != null &&
-                                flightQueryInfo.getBoolean("roundTrip")) {
-                            resp = resp + " " + "when is your return date";
-                        }
-                        break;
+        for (String queryFiled : flightQueryFields) {
+            Object fieldValue = flightQueryInfoNew.get(queryFiled);
+            if (fieldValue == null) {
+                if (queryFiled.equals("returnDate")) {
+                    if (!(Boolean) flightQueryInfoNew.get("roundTrip")) {
+                        continue;
+                    }
                 }
+                sessionNextFlightSearchQuestionMap.put(sessionId, queryFiled);
+                return flightSearchInfoQuestionNameAndQuestion.get(queryFiled);
             }
-            return resp;
         }
+        return COMPLETION;
+
     }
 
     public String askOpenAI(Long userId, String sessionId, String prompt, String preQuestion, String type) {
@@ -259,12 +343,13 @@ public class ChatBotServiceImpl {
 
         chatBotLogService.addChatbotLog(responseChatLog);
 
-        responseContent = responseContent.replace("json","").replace("```","");
+        responseContent = responseContent.replace("json", "").replace("```", "");
         return responseContent;
 
     }
 
 
+    //{"lowPriceScore", "durationScore", "stopScore"};
     private String extractPreferenceInfo(Long userId, String sessionId, String prompt) {
 
         String resp = COMPLETION;
@@ -272,59 +357,45 @@ public class ChatBotServiceImpl {
 
         String userPreferences = stringRedisTemplate.opsForValue().get(preferenceRedisKey);
         if (userPreferences == null) {
+            sessionNextPreferenceQuestionMap.put(sessionId, preferenceFields[0]);
             stringRedisTemplate.opsForValue().set(preferenceRedisKey, "{}", redisKeyExpiringTime, TimeUnit.HOURS);
             return firstPreferenceSearchFieldQuestion;
         }
-        JSONObject userPreferencesJson = JSON.parseObject(userPreferences, JSONObject.class);
+
+
+        JSONObject userPreferencesJsonOrign = JSON.parseObject(userPreferences, JSONObject.class);
 
         String openAIResponse = "";
-        if (userPreferencesJson.size() != preferenceFields.length) {
-            openAIResponse = askOpenAI(userId, sessionId, prompt, preferencePrefix, preferenceFieldChatType);
-            JSONObject preferenceInfo = JSON.parseObject(openAIResponse, JSONObject.class);
-            stringRedisTemplate.opsForValue().set(preferenceRedisKey, openAIResponse, redisKeyExpiringTime, TimeUnit.HOURS);
+        JSONObject userPreferencesJsonNew = new JSONObject();
+        if (userPreferencesJsonOrign.size() != preferenceFields.length) {
 
-            // if user give all the information in the first round of conversation of preference
-            if (preferenceInfo.size() == preferenceFields.length) {
-                return resp;
-            } else {
-                // we continue conversation ........
-                List<String> unprovidedPreferenceFieldList = new ArrayList<>();
-                for (String field : preferenceFields) {
-                    if (!preferenceInfo.containsKey(field)) {
-                        unprovidedPreferenceFieldList.add(field);
-                    }
-                }
-
-                resp = "would your like to provide answers to below questions regarding your preferences: ";
-                for (String unprovidedField : unprovidedPreferenceFieldList) {
-                    switch (unprovidedField) {
-                        case "flightTakeoffTime":
-                            resp = resp + " when would like your flight to take off ?";
-                            break;
-                        case "flightArriveTime":
-                            resp = resp + " when would like your flight to arrive";
-                            break;
-                        case "maxStops":
-                            resp = resp + " how many stops do you like";
-                            break;
-                        case "numberOfBaggage":
-                            resp = resp + " how many baggages do you need to take";
-                            break;
-                        case "transitCountries":
-                            resp = resp + " if you flight need to transit to other countries, which countries do you prefer";
-                            break;
-                    }
-                }
-
-                return resp;
-
-
+            String questionField = sessionNextPreferenceQuestionMap.get(sessionId);
+            prompt = preferenceQuestionNameAndQuestion.get(questionField) + prompt;
+            try {
+                openAIResponse = askOpenAI(userId, sessionId, prompt, preferencePrefix, preferenceFieldChatType);
+                userPreferencesJsonNew = JSON.parseObject(openAIResponse, JSONObject.class);
+            } catch (JSONException e) {
+                log.error("open ai return data format is error, try it again ", e);
+                openAIResponse = askOpenAI(userId, sessionId, prompt, preferencePrefix, preferenceFieldChatType);
+                userPreferencesJsonNew = JSON.parseObject(openAIResponse, JSONObject.class);
             }
+            userPreferencesJsonNew.putAll(userPreferencesJsonOrign.getInnerMap());
+
+            stringRedisTemplate.opsForValue().set(preferenceRedisKey, JSON.toJSONString(userPreferencesJsonNew), redisKeyExpiringTime, TimeUnit.HOURS);
+
+            for (String preferenceField : preferenceFields) {
+                if (userPreferencesJsonNew.get(preferenceField) == null) {
+                    sessionNextPreferenceQuestionMap.put(sessionId, preferenceField);
+                    resp = preferenceQuestionNameAndQuestion.get(preferenceField);
+                    break;
+                }
+            }
+            return resp;
         } else {
             // all the preference information are provided
-            return resp;
-        }
 
+            return COMPLETION;
+        }
     }
 
 
@@ -339,7 +410,7 @@ public class ChatBotServiceImpl {
             departureDate = DateUtil.addYears(departureDate, 1);
             departureDate = DateUtil.convertToLocalDate(departureDate);
             if (returnDate != null) {
-                returnDate = DateUtil.addYears(returnDate, 2);
+                returnDate = DateUtil.addYears(returnDate, 1);
                 returnDate = DateUtil.convertToLocalDate(returnDate);
 
             }

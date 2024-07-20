@@ -17,15 +17,27 @@ import java.util.List;
 public class UserPreferenceServiceImpl extends ServiceImpl<UserPreferenceMapper, UserPreferenceEntity> implements UserPreferenceService {
 
 
-    public boolean saveUserPreference(UserPreferenceEntity userPreferenceEntity){
-        return this.save(userPreferenceEntity);
+    public boolean saveUserPreference(UserPreferenceEntity userPreferenceEntity) {
+        return this.saveOrUpdate(userPreferenceEntity);
     }
 
 
     @Override
     public List<UserPreferenceEntity> getUserPreferenceByUserId(Long userId) {
-        List<UserPreferenceEntity> userPreferenceEntityList = this.list(new QueryWrapper<UserPreferenceEntity>().eq("user_id",userId));
+        List<UserPreferenceEntity> userPreferenceEntityList = this.list(new QueryWrapper<UserPreferenceEntity>().eq("user_id", userId));
 
         return userPreferenceEntityList;
+    }
+
+    @Override
+    public UserPreferenceEntity getUserPreferenceByUserIdAndPreference(Long userId, String preferenceName) {
+        List<UserPreferenceEntity> userPreferenceEntityList = this.list(new QueryWrapper<UserPreferenceEntity>().eq("user_id", userId)
+                .eq("preference_name", preferenceName));
+
+        if (userPreferenceEntityList != null && userPreferenceEntityList.size() > 0) {
+            return userPreferenceEntityList.get(0);
+        }
+
+        return null;
     }
 }
