@@ -36,13 +36,50 @@ public class AmadeusService {
         }
     }
 
+    private static final List<Map<String, Object>> predefinedLocations = Arrays.asList(
+            createLocation("Toronto", "YYZ", "Canada"),
+            createLocation("Vancouver", "YVR", "Canada"),
+            createLocation("Montreal", "YUL", "Canada"),
+            createLocation("Calgary", "YYC", "Canada"),
+            createLocation("Ottawa", "YOW", "Canada"),
+            createLocation("Edmonton", "YEG", "Canada"),
+            createLocation("Halifax", "YHZ", "Canada"),
+            createLocation("Winnipeg", "YWG", "Canada"),
+            createLocation("Quebec City", "YQB", "Canada"),
+            createLocation("Victoria", "YYJ", "Canada"),
+            createLocation("Saskatoon", "YXE", "Canada"),
+            createLocation("Regina", "YQR", "Canada")
+    );
+
+    private static Map<String, Object> createLocation(String cityName, String iataCode, String countryName) {
+        Map<String, Object> location = new HashMap<>();
+        location.put("cityName", cityName);
+        location.put("iataCode", iataCode);
+        location.put("countryName", countryName);
+        return location;
+    }
+
+    public static List<Map<String, Object>> modifyLocationList(String keyword, List<Map<String, Object>> locationList) {
+        for (Map<String, Object> location : predefinedLocations) {
+            if (((String)location.get("cityName")).equalsIgnoreCase(keyword) ||
+                ((String)location.get("cityName")).toLowerCase().startsWith(keyword.toLowerCase())) {
+                Map<String, Object> newLocation = new HashMap<>(location);
+                locationList.add(0, newLocation);
+                break;
+            }
+        }
+        return locationList;
+    }
+
     public List<Map<String, Object>> getLocations(String keyword) throws ResponseException {
         Location[] locations = amadeus.referenceData.locations.get(Params
                 .with("keyword", keyword)
                 .and("subType", Locations.CITY));
-
+        System.out.println("Keyword:"+keyword);
         Type type = new com.google.gson.reflect.TypeToken<List<Map<String, Object>>>() {}.getType();
-        return gson.fromJson(gson.toJson(locations), type);
+        List<Map<String, Object>> locationList = gson.fromJson(gson.toJson(locations), type);
+        List<Map<String, Object>> updatedList = modifyLocationList(keyword, locationList);
+        return updatedList;
     }
 
     public List<Map<String, Object>> getFlightOffers(String origin, String destination, String departureDate, String returnDate, int adults) throws ResponseException {
