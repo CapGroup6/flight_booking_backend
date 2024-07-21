@@ -45,7 +45,10 @@ public class AmadeusService {
             createLocation("Quebec City", "YQB", "Canada"),
             createLocation("Victoria", "YYJ", "Canada"),
             createLocation("Saskatoon", "YXE", "Canada"),
-            createLocation("Regina", "YQR", "Canada")
+            createLocation("Regina", "YQR", "Canada"),
+            createLocation("Seoul", "ICN", "South Korea"),
+            createLocation("Tokyo", "HND", "Japan"),
+            createLocation("Tokyo", "NRT", "Japan")
     );
 
     private static Map<String, Object> createLocation(String cityName, String iataCode, String countryName) {
@@ -62,7 +65,6 @@ public class AmadeusService {
                 ((String)location.get("cityName")).toLowerCase().startsWith(keyword.toLowerCase())) {
                 Map<String, Object> newLocation = new HashMap<>(location);
                 locationList.add(0, newLocation);
-                break;
             }
         }
         return locationList;
@@ -104,7 +106,7 @@ public class AmadeusService {
                             .and("adults", adults)
                             .and("children", children)
                             .and("travelClass", cabinClass)
-                            .and("max", 6));
+                            .and("max", 60));
         } else {
             offers = amadeus.shopping.flightOffersSearch.get(
                     Params.with("originLocationCode", origin)
@@ -113,7 +115,7 @@ public class AmadeusService {
                             .and("adults", adults)
                             .and("children", children)
                             .and("travelClass", cabinClass)
-                            .and("max", 6));
+                            .and("max", 60));
         }
 
         // Create a map to cache airline names and city/airport names to avoid multiple API calls

@@ -83,8 +83,14 @@ public class SearchResultController {
             return searchResult;
         List<Double> dWeight = new ArrayList<>();
         double sum = weight.get(0)+weight.get(1)+weight.get(2);
-        for (int i = 0; i < 3; ++i)
-            dWeight.add(weight.get(i)/sum);
+        double subWeight;
+        for (int i = 0; i < 3; ++i) {
+            if (sum != 0)
+                subWeight = weight.get(i) / sum;
+            else
+                subWeight = 1.0/3;
+            dWeight.add(subWeight);
+        }
         return preferenceSortService.rrf(searchResult, dWeight, 12);
     }
 
