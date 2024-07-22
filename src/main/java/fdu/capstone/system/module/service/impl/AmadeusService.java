@@ -106,7 +106,7 @@ public class AmadeusService {
                             .and("adults", adults)
                             .and("children", children)
                             .and("travelClass", cabinClass)
-                            .and("max", 60));
+                            .and("max", 20));
         } else {
             offers = amadeus.shopping.flightOffersSearch.get(
                     Params.with("originLocationCode", origin)
@@ -115,7 +115,7 @@ public class AmadeusService {
                             .and("adults", adults)
                             .and("children", children)
                             .and("travelClass", cabinClass)
-                            .and("max", 60));
+                            .and("max", 20));
         }
 
         // Create a map to cache airline names and city/airport names to avoid multiple API calls

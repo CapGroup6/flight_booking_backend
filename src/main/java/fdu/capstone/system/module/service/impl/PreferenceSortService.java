@@ -1,10 +1,13 @@
 package fdu.capstone.system.module.service.impl;
 
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.apache.ibatis.ognl.ObjectElementsAccessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.Serial;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 @Service
@@ -21,9 +24,20 @@ public class PreferenceSortService {
             Map<String, Object> flight = searchResult.get(i);
             flight.put("sortID", i);
         }
-        List<Map<String, Object>> resultByPrice = searchResultService.sortResultByPrice(searchResult);
-        List<Map<String, Object>> resultByDuration = searchResultService.sortResultByDuration(searchResult);
-        List<Map<String, Object>> resultByStopNum = searchResultService.sortResultByStopoverNum(searchResult);
+        List<Map<String, Object>> resultByPrice = new ArrayList<>();
+        List<Map<String, Object>> resultByDuration = new ArrayList<>();
+        List<Map<String, Object>> resultByStopNum = new ArrayList<>();
+        for (Map<String, Object> item: searchResult) {
+            Map<String, Object> copy1 = new HashMap<>(item);
+            resultByPrice.add(copy1);
+            Map<String, Object> copy2 = new HashMap<>(item);
+            resultByDuration.add(copy2);
+            Map<String, Object> copy3 = new HashMap<>(item);
+            resultByStopNum.add(copy3);
+        }
+        resultByPrice = searchResultService.sortResultByPrice(resultByPrice);
+        resultByDuration = searchResultService.sortResultByDuration(resultByDuration);
+        resultByStopNum = searchResultService.sortResultByStopoverNum(resultByStopNum);
         Integer id;
 
         for (int i = 0; i < n; ++i) {
